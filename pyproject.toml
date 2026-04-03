@@ -62,6 +62,43 @@ null_dereference = "agents.cluster_03_bug_detection.null_dereference.agent:NullD
 resource_leak = "agents.cluster_03_bug_detection.resource_leak.agent:ResourceLeakAgent"
 race_condition = "agents.cluster_03_bug_detection.race_condition.agent:RaceConditionAgent"
 gc_pressure = "agents.cluster_05_performance.gc_pressure.agent:GcPressureAgent"
+# Phase 2 — Batch 1: Code Quality + Architecture
+magic_number = "agents.cluster_07_code_quality.magic_number.agent:MagicNumberAgent"
+solid_violations = "agents.cluster_06_architecture.solid_violations.agent:SolidViolationsAgent"
+circular_dependency = "agents.cluster_06_architecture.circular_dependency.agent:CircularDependencyAgent"
+layer_violation = "agents.cluster_06_architecture.layer_violation.agent:LayerViolationAgent"
+assertion_quality = "agents.cluster_08_testing.assertion_quality.agent:AssertionQualityAgent"
+# Phase 2 — Batch 2: Security Expansion
+path_traversal = "agents.cluster_04_security.path_traversal.agent:PathTraversalAgent"
+command_injection = "agents.cluster_04_security.command_injection.agent:CommandInjectionAgent"
+ssrf = "agents.cluster_04_security.ssrf.agent:SsrfAgent"
+deserialization = "agents.cluster_04_security.deserialization.agent:DeserializationAgent"
+auth_bypass = "agents.cluster_04_security.auth_bypass.agent:AuthBypassAgent"
+# Phase 2 — Batch 3: Bug Detection Expansion
+integer_overflow = "agents.cluster_03_bug_detection.integer_overflow.agent:IntegerOverflowAgent"
+infinite_loop = "agents.cluster_03_bug_detection.infinite_loop.agent:InfiniteLoopAgent"
+uninitialized_variable = "agents.cluster_03_bug_detection.uninitialized_variable.agent:UninitializedVariableAgent"
+type_confusion = "agents.cluster_03_bug_detection.type_confusion.agent:TypeConfusionAgent"
+# Phase 2 — Batch 4: Testing + Git + Performance
+test_coverage_gap = "agents.cluster_08_testing.test_coverage_gap.agent:TestCoverageGapAgent"
+test_smell = "agents.cluster_08_testing.test_smell.agent:TestSmellAgent"
+hotspot = "agents.cluster_09_git_intelligence.hotspot.agent:HotspotAgent"
+co_change_miner = "agents.cluster_09_git_intelligence.co_change_miner.agent:CoChangeMinerAgent"
+memory_alloc_hotspot = "agents.cluster_05_performance.memory_alloc_hotspot.agent:MemoryAllocHotspotAgent"
+ast_pattern_matching = "agents.cluster_01_static_analysis.ast_pattern_matching.agent:AstPatternMatchingAgent"
+# Phase 2 — Batch 5: Static Analysis + Semantic
+token_sequence = "agents.cluster_01_static_analysis.token_sequence.agent:TokenSequenceAgent"
+semantic_clone = "agents.cluster_02_semantic_understanding.semantic_clone.agent:SemanticCloneAgent"
+# Phase 2 — Batch 6: Language-Specific Deep
+python_type_annotation = "agents.cluster_10_language_specific.python_type_annotation.agent:PythonTypeAnnotationAgent"
+js_async_await = "agents.cluster_10_language_specific.js_async_await.agent:JsAsyncAwaitAgent"
+ts_type_safety = "agents.cluster_10_language_specific.ts_type_safety.agent:TsTypeSafetyAgent"
+java_concurrency = "agents.cluster_10_language_specific.java_concurrency.agent:JavaConcurrencyAgent"
+go_goroutine_safety = "agents.cluster_10_language_specific.go_goroutine_safety.agent:GoGoroutineSafetyAgent"
+# Phase 2 — Batch 7: LLM + Taint Flow
+review_generator = "agents.cluster_11_llm_generative.review_generator.agent:ReviewGeneratorAgent"
+fix_suggestion = "agents.cluster_11_llm_generative.fix_suggestion.agent:FixSuggestionAgent"
+taint_flow_analyzer = "agents.cluster_13_graph_relational.taint_flow_analyzer.agent:TaintFlowAnalyzerAgent"
 
 [dependency-groups]
 dev = [

@@ -69,6 +69,38 @@ _ASSIGNMENT_TYPES: dict[str, set[str]] = {
     "go": {"assignment_statement", "short_var_declaration"},
 }
 
+_IMPORT_TYPES: dict[str, set[str]] = {
+    "python": {"import_statement", "import_from_statement"},
+    "javascript": {"import_statement"},
+    "typescript": {"import_statement"},
+    "java": {"import_declaration"},
+    "go": {"import_declaration", "import_spec"},
+}
+
+_CLASS_DEF_TYPES: dict[str, set[str]] = {
+    "python": {"class_definition"},
+    "javascript": {"class_declaration"},
+    "typescript": {"class_declaration"},
+    "java": {"class_declaration", "interface_declaration"},
+    "go": {"type_declaration"},
+}
+
+_NUMERIC_TYPES: dict[str, set[str]] = {
+    "python": {"integer", "float"},
+    "javascript": {"number"},
+    "typescript": {"number"},
+    "java": {"decimal_integer_literal", "decimal_floating_point_literal"},
+    "go": {"int_literal", "float_literal"},
+}
+
+_RETURN_TYPES: dict[str, set[str]] = {
+    "python": {"return_statement"},
+    "javascript": {"return_statement"},
+    "typescript": {"return_statement"},
+    "java": {"return_statement"},
+    "go": {"return_statement"},
+}
+
 _DEFAULT_FUNC_TYPES: set[str] = {
     "function_definition",
     "function_declaration",
@@ -148,6 +180,49 @@ class AssignmentInfo:
     value_text: str
     start_line: int
     end_line: int
+
+
+@dataclass(slots=True)
+class ImportInfo:
+    """Extracted import statement."""
+
+    node: tree_sitter.Node
+    module: str
+    names: list[str]  # imported names (empty for bare imports)
+    start_line: int
+    end_line: int
+
+
+@dataclass(slots=True)
+class ClassInfo:
+    """Extracted class/interface definition."""
+
+    name: str
+    node: tree_sitter.Node
+    start_line: int
+    end_line: int
+    method_count: int
+    parent_classes: list[str]
+
+
+@dataclass(slots=True)
+class NumericLiteralInfo:
+    """Extracted numeric literal."""
+
+    node: tree_sitter.Node
+    value_text: str
+    start_line: int
+    enclosing_function: str | None
+
+
+@dataclass(slots=True)
+class ReturnInfo:
+    """Extracted return statement."""
+
+    node: tree_sitter.Node
+    value_text: str
+    start_line: int
+    enclosing_function: str | None
 
 
 # ---------------------------------------------------------------------------
@@ -522,3 +597,204 @@ def is_async_function(node: tree_sitter.Node, language: str) -> bool:
                 if get_node_text(child).strip() == "async":
                     return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Import extraction
+# ---------------------------------------------------------------------------
+
+
+def find_imports(root: tree_sitter.Node, language: str) -> list[ImportInfo]:
+    """Extract all import statements from the AST."""
+    import_types = _get_types(_IMPORT_TYPES, language, set())
+    if not import_types:
+        return []
+
+    lang = language.lower()
+    results: list[ImportInfo] = []
+
+    for node in walk(root):
+        if node.type not in import_types:
+            continue
+
+        text = get_node_text(node)
+        module = ""
+        names: list[str] = []
+
+        if lang == "python":
+            if node.type == "import_from_statement":
+                mod_node = node.child_by_field_name("module_name")
+                if mod_node is not None:
+                    module = get_node_text(mod_node)
+                else:
+                    # fallback: parse from text
+                    parts = text.split("from")
+                    if len(parts) > 1:
+                        module = parts[1].split("import")[0].strip()
+                for child in node.named_children:
+                    if child.type in ("dotted_name", "aliased_import"):
+                        names.append(get_node_text(child).split(" as ")[0].strip())
+            else:
+                # import X / import X.Y
+                for child in node.named_children:
+                    if child.type in ("dotted_name", "aliased_import"):
+                        module = get_node_text(child).split(" as ")[0].strip()
+        elif lang in ("javascript", "typescript"):
+            # import { x } from 'module' / import x from 'module'
+            source_node = node.child_by_field_name("source")
+            if source_node is not None:
+                module = get_node_text(source_node).strip("\"'`")
+            for child in node.named_children:
+                if child.type == "import_specifier":
+                    names.append(get_node_text(child).split(" as ")[0].strip())
+                elif child.type == "identifier":
+                    names.append(get_node_text(child))
+        elif lang == "java":
+            # import package.name;
+            module = text.replace("import", "").replace("static", "").strip().rstrip(";").strip()
+        elif lang == "go":
+            if node.type == "import_spec":
+                path_node = node.child_by_field_name("path")
+                if path_node is not None:
+                    module = get_node_text(path_node).strip('"')
+            else:
+                # import_declaration may contain multiple specs
+                for child in node.named_children:
+                    if child.type == "import_spec_list":
+                        for spec in child.named_children:
+                            if spec.type == "import_spec":
+                                path_node = spec.child_by_field_name("path")
+                                if path_node is not None:
+                                    module = get_node_text(path_node).strip('"')
+
+        results.append(
+            ImportInfo(
+                node=node,
+                module=module,
+                names=names,
+                start_line=node.start_point[0] + 1,
+                end_line=node.end_point[0] + 1,
+            )
+        )
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Class extraction
+# ---------------------------------------------------------------------------
+
+
+def find_class_definitions(root: tree_sitter.Node, language: str) -> list[ClassInfo]:
+    """Extract class/interface definitions from the AST."""
+    class_types = _get_types(_CLASS_DEF_TYPES, language, set())
+    if not class_types:
+        return []
+
+    lang = language.lower()
+    func_types = _get_types(_FUNCTION_DEF_TYPES, language, _DEFAULT_FUNC_TYPES)
+    results: list[ClassInfo] = []
+
+    for node in walk(root):
+        if node.type not in class_types:
+            continue
+
+        name_node = node.child_by_field_name("name")
+        if name_node is None:
+            continue
+        name = get_node_text(name_node)
+
+        # Count methods
+        method_count = 0
+        for child in walk(node):
+            if child != node and child.type in func_types:
+                method_count += 1
+
+        # Extract parent classes
+        parents: list[str] = []
+        if lang == "python":
+            args_node = node.child_by_field_name("superclasses")
+            if args_node is not None:
+                for arg in args_node.named_children:
+                    parents.append(get_node_text(arg))
+        elif lang == "java":
+            sc = node.child_by_field_name("superclass")
+            if sc is not None:
+                parents.append(get_node_text(sc))
+            interfaces = node.child_by_field_name("interfaces")
+            if interfaces is not None:
+                for child in interfaces.named_children:
+                    parents.append(get_node_text(child))
+
+        results.append(
+            ClassInfo(
+                name=name,
+                node=node,
+                start_line=node.start_point[0] + 1,
+                end_line=node.end_point[0] + 1,
+                method_count=method_count,
+                parent_classes=parents,
+            )
+        )
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Numeric literal extraction
+# ---------------------------------------------------------------------------
+
+
+def find_numeric_literals(root: tree_sitter.Node, language: str) -> list[NumericLiteralInfo]:
+    """Extract numeric literal nodes from the AST."""
+    numeric_types = _get_types(_NUMERIC_TYPES, language, set())
+    if not numeric_types:
+        return []
+
+    func_types = _get_types(_FUNCTION_DEF_TYPES, language, _DEFAULT_FUNC_TYPES)
+    results: list[NumericLiteralInfo] = []
+
+    for node in walk(root):
+        if node.type not in numeric_types:
+            continue
+        results.append(
+            NumericLiteralInfo(
+                node=node,
+                value_text=get_node_text(node),
+                start_line=node.start_point[0] + 1,
+                enclosing_function=_enclosing_function_name(node, func_types, language),
+            )
+        )
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Return statement extraction
+# ---------------------------------------------------------------------------
+
+
+def find_return_statements(root: tree_sitter.Node, language: str) -> list[ReturnInfo]:
+    """Extract return statements from the AST."""
+    return_types = _get_types(_RETURN_TYPES, language, set())
+    if not return_types:
+        return []
+
+    func_types = _get_types(_FUNCTION_DEF_TYPES, language, _DEFAULT_FUNC_TYPES)
+    results: list[ReturnInfo] = []
+
+    for node in walk(root):
+        if node.type not in return_types:
+            continue
+        # Get the return value expression
+        value_text = ""
+        for child in node.named_children:
+            value_text = get_node_text(child)
+            break
+
+        results.append(
+            ReturnInfo(
+                node=node,
+                value_text=value_text,
+                start_line=node.start_point[0] + 1,
+                enclosing_function=_enclosing_function_name(node, func_types, language),
+            )
+        )
+    return results
