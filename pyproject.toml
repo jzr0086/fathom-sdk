@@ -37,7 +37,31 @@ dev = [
 ]
 
 [project.entry-points."fathom.agents"]
-# Agents register themselves here for auto-discovery
+# Batch 1 — Code Quality + Performance
+long_method = "agents.cluster_07_code_quality.long_method.agent:LongMethodAgent"
+cyclomatic_complexity = "agents.cluster_07_code_quality.cyclomatic_complexity.agent:CyclomaticComplexityAgent"
+cognitive_complexity = "agents.cluster_07_code_quality.cognitive_complexity.agent:CognitiveComplexityAgent"
+nested_loop_complexity = "agents.cluster_05_performance.nested_loop_complexity.agent:NestedLoopComplexityAgent"
+# Batch 2 — Security + Exception Swallowing
+exception_swallowing = "agents.cluster_03_bug_detection.exception_swallowing.agent:ExceptionSwallowingAgent"
+weak_cipher_hash = "agents.cluster_04_security.weak_cipher_hash.agent:WeakCipherHashAgent"
+insecure_randomness = "agents.cluster_04_security.insecure_randomness.agent:InsecureRandomnessAgent"
+hardcoded_secrets = "agents.cluster_04_security.hardcoded_secrets.agent:HardcodedSecretsAgent"
+# Batch 3 — Security Data Flow + Bug Detection
+sql_injection = "agents.cluster_04_security.sql_injection.agent:SqlInjectionAgent"
+xss_pattern = "agents.cluster_04_security.xss_pattern.agent:XssPatternAgent"
+blocking_io_async = "agents.cluster_05_performance.blocking_io_async.agent:BlockingIoAsyncAgent"
+off_by_one = "agents.cluster_03_bug_detection.off_by_one.agent:OffByOneAgent"
+# Batch 4 — Performance + Analysis
+n_plus_one_query = "agents.cluster_05_performance.n_plus_one_query.agent:NPlusOneQueryAgent"
+unnecessary_recomputation = "agents.cluster_05_performance.unnecessary_recomputation.agent:UnnecessaryRecomputationAgent"
+dead_code_reachability = "agents.cluster_01_static_analysis.dead_code_reachability.agent:DeadCodeReachabilityAgent"
+duplicate_code = "agents.cluster_02_semantic_understanding.duplicate_code.agent:DuplicateCodeAgent"
+# Batch 5 — Advanced Data Flow + Critical
+null_dereference = "agents.cluster_03_bug_detection.null_dereference.agent:NullDereferenceAgent"
+resource_leak = "agents.cluster_03_bug_detection.resource_leak.agent:ResourceLeakAgent"
+race_condition = "agents.cluster_03_bug_detection.race_condition.agent:RaceConditionAgent"
+gc_pressure = "agents.cluster_05_performance.gc_pressure.agent:GcPressureAgent"
 
 [dependency-groups]
 dev = [
